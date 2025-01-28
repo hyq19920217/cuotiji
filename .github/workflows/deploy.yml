@@ -8,7 +8,13 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout code
+        uses: actions/checkout@v2
+      
+      - name: Debug Info
+        run: |
+          echo "Current directory: $(pwd)"
+          ls -la
       
       - name: Setup Node.js
         uses: actions/setup-node@v2
@@ -18,6 +24,8 @@ jobs:
       - name: Install Frontend Dependencies
         run: |
           cd frontend
+          echo "Frontend directory contents:"
+          ls -la
           npm install
           
       - name: Build Frontend
@@ -28,6 +36,8 @@ jobs:
       - name: Install Backend Dependencies
         run: |
           cd backend
+          echo "Backend directory contents:"
+          ls -la
           npm install
           npm run build
           
@@ -42,5 +52,7 @@ jobs:
           EXCLUDE: "/node_modules/, /.git/, /.github/"
           SCRIPT_AFTER: |
             cd /var/www/cuotiji
+            echo "Server directory contents:"
+            ls -la
             npm install --production
             pm2 restart cuotiji || pm2 start backend/dist/index.js --name cuotiji 
