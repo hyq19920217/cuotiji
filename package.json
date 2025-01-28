@@ -1,0 +1,12 @@
+{
+  "name": "cuotiji",
+  "version": "1.0.0",
+  "description": "一个智能的在线错题本系统，帮助学生更好地管理和学习错题。",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
