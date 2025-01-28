@@ -15,23 +15,32 @@ jobs:
         with:
           node-version: '18'
           
-      - name: Install Dependencies
+      - name: Install Frontend Dependencies
         run: |
           cd frontend
           npm install
-          cd ../backend
-          npm install
           
-      - name: Build
+      - name: Build Frontend
         run: |
           cd frontend
           npm run build
           
-      - name: Deploy to Tencent Cloud
+      - name: Install Backend Dependencies
+        run: |
+          cd backend
+          npm install
+          npm run build
+          
+      - name: Deploy to Server
         uses: easingthemes/ssh-deploy@main
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SERVER_SSH_KEY }}
-          REMOTE_HOST: ${{ secrets.REMOTE_HOST }}
-          REMOTE_USER: ${{ secrets.REMOTE_USER }}
+          REMOTE_HOST: ${{ secrets.SERVER_HOST }}
+          REMOTE_USER: ${{ secrets.SERVER_USERNAME }}
           SOURCE: "."
-          TARGET: "/var/www/mistake-notebook" 
+          TARGET: "/var/www/cuotiji"
+          EXCLUDE: "/node_modules/, /.git/, /.github/"
+          SCRIPT_AFTER: |
+            cd /var/www/cuotiji
+            npm install --production
+            pm2 restart cuotiji || pm2 start backend/dist/index.js --name cuotiji 
