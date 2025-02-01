@@ -180,7 +180,10 @@ def analyze_mistakes():
                 },
                 json={
                     'model': 'ChatStd',
-                    'messages': messages,
+                    'messages': [{
+                        'role': msg['role'],
+                        'content': msg['content']
+                    } for msg in messages],
                     'app_id': app.config['TENCENT_APP_ID'],
                     'temperature': 0.7,
                     'stream': False
@@ -188,10 +191,20 @@ def analyze_mistakes():
             )
             print(f"模型返回的原始响应: {response.text}")  # 添加日志
             
-            result = response.json()
-            print(f"解析后的结果: {result}")  # 添加日志
-            analysis = result['response']
-            
+            try:
+                result = response.json()
+                print(f"解析后的结果: {result}")  # 添加日志
+                # 腾讯混沌大模型的响应格式可能不同
+                analysis = result.get('choices', [{}])[0].get('message', {}).get('content', '')
+                if not analysis:
+                    analysis = result.get('response', '')  # 备选字段
+                
+                if not analysis:
+                    raise ValueError("无法从响应中获取分析结果")
+            except Exception as e:
+                print(f"解析响应失败: {str(e)}")
+                raise Exception(f"解析模型响应失败: {str(e)}")
+
             # 更新数据库
             mistake.analysis = analysis
             mistake.tags = json.dumps(extract_tags(analysis), ensure_ascii=False)
