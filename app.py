@@ -163,6 +163,9 @@ def analyze_mistakes():
             ]
             
             print(f"发送到模型的消息: {messages}")  # 添加日志
+            print(f"请求 URL: {response.request.url}")
+            print(f"请求头: {response.request.headers}")
+            print(f"请求体: {response.request.body}")
             # 调用 Deepseek API
             signature, timestamp, nonce = generate_signature(app.config["TENCENT_SECRET_KEY"], "POST", "/hyllm/v1/chat/completions", {
                 "app_id": app.config['TENCENT_APP_ID'],
@@ -175,7 +178,7 @@ def analyze_mistakes():
             response = requests.post(
                 'https://hunyuan.cloud.tencent.com/hyllm/v1/chat/completions',
                 headers={
-                    'Authorization': f'AppId={app.config["TENCENT_APP_ID"]};SecretId={app.config["TENCENT_SECRET_ID"]};Timestamp={timestamp};Nonce={nonce};Signature={signature}',
+                    'Authorization': f'AppId={app.config["TENCENT_APP_ID"]}&SecretId={app.config["TENCENT_SECRET_ID"]}&Timestamp={timestamp}&Nonce={nonce}&Signature={signature}',
                     'Content-Type': 'application/json'
                 },
                 json={
@@ -184,7 +187,7 @@ def analyze_mistakes():
                         'role': msg['role'],
                         'content': msg['content']
                     } for msg in messages],
-                    'app_id': app.config['TENCENT_APP_ID'],
+                    'app_id': int(app.config['TENCENT_APP_ID']),  # 确保是整数
                     'temperature': 0.7,
                     'stream': False
                 }
@@ -240,10 +243,16 @@ def generate_signature(secret_key, http_method, uri, params):
     timestamp = str(int(time.time()))
     nonce = str(random.randint(1, 100000))
     
+    # 将 messages 转换为字符串
+    if 'messages' in params:
+        params['messages'] = json.dumps(params['messages'])
+    
+    # 按照键名对参数排序
     sorted_params = sorted(params.items())
     params_str = '&'.join([f"{k}={v}" for k, v in sorted_params])
     
     sign_str = f"{http_method}\n{uri}\n{params_str}\n{timestamp}\n{nonce}"
+    print(f"签名字符串: {sign_str}")  # 添加日志
     
     hmac_obj = hmac.new(
         secret_key.encode('utf-8'),
