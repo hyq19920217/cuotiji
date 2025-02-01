@@ -163,10 +163,8 @@ def analyze_mistakes():
             ]
             
             print(f"发送到模型的消息: {messages}")  # 添加日志
-            print(f"请求 URL: {response.request.url}")
-            print(f"请求头: {response.request.headers}")
-            print(f"请求体: {response.request.body}")
-            # 调用 Deepseek API
+
+            # 调用腾讯混沌大模型 API
             signature, timestamp, nonce = generate_signature(app.config["TENCENT_SECRET_KEY"], "POST", "/hyllm/v1/chat/completions", {
                 "app_id": app.config['TENCENT_APP_ID'],
                 "model": "ChatStd",
@@ -192,7 +190,13 @@ def analyze_mistakes():
                     'stream': False
                 }
             )
-            print(f"模型返回的原始响应: {response.text}")  # 添加日志
+            
+            # 把日志移到这里
+            print(f"请求 URL: {response.request.url}")
+            print(f"请求头: {response.request.headers}")
+            print(f"请求体: {response.request.body}")
+            print(f"响应状态码: {response.status_code}")
+            print(f"模型返回的原始响应: {response.text}")
             
             try:
                 result = response.json()

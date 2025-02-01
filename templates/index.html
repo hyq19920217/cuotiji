@@ -293,10 +293,10 @@
                     errorDetail = error.response.data.detail || error.message;
                     errorTrace = error.response.data.traceback || '';
                 }
-                alert('分析失败\n' + 
-                    '错误详情：' + errorDetail + '\n\n' +
-                    '错误堆栈：\n' + errorTrace
-                );
+                document.getElementById('logArea').innerHTML += 
+                    `[${new Date().toLocaleTimeString()}] 分析失败\n` +
+                    `错误详情：${errorDetail}\n` +
+                    `错误堆栈：\n${errorTrace}\n`;
             }
         }
     </script>
