@@ -166,11 +166,7 @@ def analyze_mistakes():
 
             # 调用腾讯混沌大模型 API
             signature, timestamp, nonce = generate_signature(app.config["TENCENT_SECRET_KEY"], "POST", "/hyllm/v1/chat/completions", {
-                "app_id": app.config['TENCENT_APP_ID'],
-                "model": "ChatStd",
-                "messages": json.dumps(messages),  # 转换为 JSON 字符串
-                "temperature": 0.7,
-                "stream": False
+                "app_id": app.config['TENCENT_APP_ID']
             })
             
             response = requests.post(
@@ -185,11 +181,8 @@ def analyze_mistakes():
                         'role': msg['role'],
                         'content': msg['content']
                     } for msg in messages],
-                    'app_id': app.config['TENCENT_APP_ID'],  # 不需要转换为整数
-                    'temperature': 0.8,
-                    'top_p': 0.95,
-                    'stream': False,
-                    'max_tokens': 1024
+                    'temperature': 0.7,
+                    'stream': False
                 }
             )
             
