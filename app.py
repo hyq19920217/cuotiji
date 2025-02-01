@@ -166,7 +166,11 @@ def analyze_mistakes():
 
             # 调用腾讯混沌大模型 API
             signature, timestamp, nonce = generate_signature(app.config["TENCENT_SECRET_KEY"], "POST", "/hyllm/v1/chat/completions", {
-                "app_id": app.config['TENCENT_APP_ID']
+                "app_id": app.config['TENCENT_APP_ID'],
+                "messages": messages,
+                "model": "hunyuan",
+                "temperature": 0.7,
+                "stream": False
             })
             
             response = requests.post(
@@ -176,10 +180,10 @@ def analyze_mistakes():
                     'Content-Type': 'application/json'
                 },
                 json={
-                    'model': 'hunyuan',  # 修改模型名称
+                    'model': 'hunyuan',
                     'messages': [{
                         'role': msg['role'],
-                        'content': msg['content']
+                        'content': msg['content'].strip()  # 确保内容没有多余空格
                     } for msg in messages],
                     'temperature': 0.7,
                     'stream': False
@@ -201,10 +205,8 @@ def analyze_mistakes():
                 if 'error' in result:
                     raise ValueError(f"API 错误: {result['error']}")
                 
-                if 'text' in result:
-                    analysis = result['text']
-                elif 'choices' in result and len(result['choices']) > 0:
-                    analysis = result['choices'][0].get('text', '')
+                if 'choices' in result and len(result['choices']) > 0:
+                    analysis = result['choices'][0].get('message', {}).get('content', '')
                 else:
                     print(f"未知的响应格式: {result}")  # 添加日志
                     raise ValueError(f"未知的响应格式: {result}")
