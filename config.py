@@ -11,8 +11,14 @@ class Config:
     MYSQL_PASSWORD = os.getenv('MYSQL_PASSWORD', 'Cuotiji@2024')
     MYSQL_DB = os.getenv('MYSQL_DB', 'cuotiji')
     
-    # 使用 URL 编码处理特殊字符
-    SQLALCHEMY_DATABASE_URI = f"mysql+pymysql://{MYSQL_USER}:{MYSQL_PASSWORD}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DB}"
+    # URL 编码处理特殊字符
+    SQLALCHEMY_DATABASE_URI = 'mysql+pymysql://{user}:{password}@{host}:{port}/{db}'.format(
+        user=MYSQL_USER,
+        password=MYSQL_PASSWORD.replace('@', '%40'),  # URL 编码 @ 符号
+        host=MYSQL_HOST,
+        port=MYSQL_PORT,
+        db=MYSQL_DB
+    )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     
     # 百度OCR配置
