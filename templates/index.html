@@ -277,26 +277,30 @@
                     body: JSON.stringify({ mistake_ids: selected })
                 });
                 
+                // 记录响应状态
+                log(`响应状态码: ${response.status}`);
+                
+                // 获取响应内容
                 const data = await response.json();
+                log(`响应内容: ${JSON.stringify(data, null, 2)}`);
+                
                 if (data.success) {
                     log('分析成功！');
                     await loadMistakes();
                 } else {
-                    log(`分析失败：${data.error}`);
+                    log(`分析失败：${data.error}\n详细信息：${data.detail}\n错误堆栈：${data.traceback}`);
                     alert('分析失败');
                 }
             } catch (error) {
                 console.error('分析错误:', error);
-                let errorDetail = '';
-                let errorTrace = '';
-                if (error.response && error.response.data) {
-                    errorDetail = error.response.data.detail || error.message;
-                    errorTrace = error.response.data.traceback || '';
+                // 直接记录完整的错误信息
+                log('分析错误:');
+                log(`错误消息: ${error.message}`);
+                if (error.response) {
+                    log(`响应状态: ${error.response.status}`);
+                    log(`响应数据: ${JSON.stringify(error.response.data, null, 2)}`);
                 }
-                document.getElementById('logArea').innerHTML += 
-                    `[${new Date().toLocaleTimeString()}] 分析失败\n` +
-                    `错误详情：${errorDetail}\n` +
-                    `错误堆栈：\n${errorTrace}\n`;
+                log(`错误堆栈: ${error.stack}`);
             }
         }
     </script>
