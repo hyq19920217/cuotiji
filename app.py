@@ -185,9 +185,11 @@ def analyze_mistakes():
                         'role': msg['role'],
                         'content': msg['content']
                     } for msg in messages],
-                    'app_id': int(app.config['TENCENT_APP_ID']),  # 确保是整数
-                    'temperature': 0.7,
-                    'stream': False
+                    'app_id': int(app.config['TENCENT_APP_ID']),
+                    'temperature': 0.8,
+                    'top_p': 0.95,
+                    'stream': False,
+                    'max_tokens': 1024
                 }
             )
             
@@ -201,13 +203,23 @@ def analyze_mistakes():
             try:
                 result = response.json()
                 print(f"解析后的结果: {result}")  # 添加日志
-                # 腾讯混沌大模型的响应格式可能不同
-                analysis = result.get('choices', [{}])[0].get('message', {}).get('content', '')
-                if not analysis:
-                    analysis = result.get('response', '')  # 备选字段
+                
+                # 腾讯混沌大模型的响应格式
+                if 'error' in result:
+                    raise ValueError(f"API 错误: {result['error']}")
+                
+                if 'text' in result:
+                    analysis = result['text']
+                elif 'choices' in result and len(result['choices']) > 0:
+                    analysis = result['choices'][0].get('text', '')
+                else:
+                    print(f"未知的响应格式: {result}")  # 添加日志
+                    raise ValueError(f"未知的响应格式: {result}")
                 
                 if not analysis:
                     raise ValueError("无法从响应中获取分析结果")
+                
+                print(f"成功提取分析结果: {analysis}")  # 添加日志
             except Exception as e:
                 print(f"解析响应失败: {str(e)}")
                 raise Exception(f"解析模型响应失败: {str(e)}")
