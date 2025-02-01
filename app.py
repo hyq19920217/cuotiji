@@ -168,7 +168,7 @@ def analyze_mistakes():
             signature, timestamp, nonce = generate_signature(app.config["TENCENT_SECRET_KEY"], "POST", "/hyllm/v1/chat/completions", {
                 "app_id": app.config['TENCENT_APP_ID'],
                 "model": "ChatStd",
-                "messages": messages,
+                "messages": json.dumps(messages),  # 转换为 JSON 字符串
                 "temperature": 0.7,
                 "stream": False
             })
@@ -180,12 +180,12 @@ def analyze_mistakes():
                     'Content-Type': 'application/json'
                 },
                 json={
-                    'model': 'ChatStd',
+                    'model': 'hunyuan',  # 修改模型名称
                     'messages': [{
                         'role': msg['role'],
                         'content': msg['content']
                     } for msg in messages],
-                    'app_id': int(app.config['TENCENT_APP_ID']),
+                    'app_id': app.config['TENCENT_APP_ID'],  # 不需要转换为整数
                     'temperature': 0.8,
                     'top_p': 0.95,
                     'stream': False,
