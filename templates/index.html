@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>错题集管理系统</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .upload-area {
+            border: 2px dashed #ccc;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .mistake-list {
+            margin-top: 20px;
+        }
+        .mistake-item {
+            position: relative;
+            border: 1px solid #eee;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        .mistake-actions {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+        }
+        .edit-area {
+            width: 100%;
+            min-height: 100px;
+            margin: 10px 0;
+        }
+        .editing {
+            background-color: #f8f9fa;
+        }
+        .mistake-select {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+        }
+        .analyze-button {
+            margin: 10px 0;
+            padding: 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .tags {
+            margin-top: 10px;
+        }
+        .tag {
+            display: inline-block;
+            padding: 2px 8px;
+            margin: 2px;
+            background-color: #e0e0e0;
+            border-radius: 12px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <h1>错题集管理系统</h1>
+    
+    <div class="upload-area">
+        <h2>上传图片</h2>
+        <input type="file" id="imageInput" accept="image/*">
+        <button onclick="uploadImage()">上传并识别</button>
+    </div>
+
+    <div id="result"></div>
+    
+    <div class="log-area">
+        <h2>操作日志</h2>
+        <pre id="logArea" style="background: #f5f5f5; padding: 10px; border-radius: 4px; max-height: 300px; overflow-y: auto;"></pre>
+    </div>
+
+    <div class="mistake-list">
+        <h2>错题列表</h2>
+        <div id="mistakeList"></div>
+    </div>
+
+    <div class="analyze-section">
+        <button class="analyze-button" onclick="analyzeSelected()">分析选中的错题</button>
+    </div>
+
+    <script>
+        function log(message) {
+            const logArea = document.getElementById('logArea');
+            const time = new Date().toLocaleTimeString();
+            logArea.innerHTML += `[${time}] ${message}\n`;
+            logArea.scrollTop = logArea.scrollHeight;
+        }
+
+        // 上传图片
+        async function uploadImage() {
+            const input = document.getElementById('imageInput');
+            const file = input.files[0];
+            if (!file) {
+                log('错误：没有选择文件');
+                alert('请选择图片');
+                return;
+            }
+
+            log(`开始上传文件：${file.name}`);
+            const formData = new FormData();
+            formData.append('image', file);
+
+            try {
+                log('正在发送请求...');
+                const response = await fetch('/api/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+                
+                log('收到服务器响应：' + JSON.stringify(data, null, 2));
+                
+                if (data.success) {
+                    log('上传成功！');
+                    if (data.text) {
+                        log(`识别结果：\n${data.text}`);
+                        document.getElementById('result').innerHTML = `
+                            <h3>识别结果：</h3>
+                            <pre>${data.text}</pre>
+                        `;
+                    } else {
+                        log('警告：识别结果为空');
+                    }
+                    loadMistakes();
+                } else {
+                    log(`错误：${data.error || '上传失败'}\n详情：${data.detail || '无'}`);
+                    alert(data.error || '上传失败');
+                }
+            } catch (error) {
+                log(`错误：${error.message}`);
+                console.error('Error:', error);
+                alert('上传失败');
+            }
+        }
+
+        function renderMistake(mistake) {
+            const tags = mistake.tags ? JSON.parse(mistake.tags) : [];
+            return `
+                <div class="mistake-item" id="mistake-${mistake.id}">
+                    <input type="checkbox" class="mistake-select" onclick="updateSelectedCount()">
+                    <div class="mistake-actions">
+                        <button onclick="editMistake(${mistake.id})">编辑</button>
+                        <button onclick="deleteMistake(${mistake.id})">删除</button>
+                    </div>
+                    <p><strong>时间：</strong>${mistake.created_at}</p>
+                    <div class="content-area">
+                        <p><strong>内容：</strong></p>
+                        <pre class="content">${mistake.content}</pre>
+                    </div>
+                    <div class="edit-area" style="display: none;">
+                        <textarea class="edit-content" style="width: 100%; min-height: 100px;">${mistake.content}</textarea>
+                        <button onclick="saveMistake(${mistake.id})">保存</button>
+                        <button onclick="cancelEdit(${mistake.id})">取消</button>
+                    </div>
+                    ${mistake.analysis ? `
+                        <div class="analysis">
+                            <p><strong>分析：</strong></p>
+                            <pre>${mistake.analysis}</pre>
+                        </div>
+                    ` : ''}
+                    <div class="tags">
+                        ${tags.map(tag => `<span class="tag">${tag}</span>`).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        async function editMistake(id) {
+            const item = document.getElementById(`mistake-${id}`);
+            item.classList.add('editing');
+            item.querySelector('.content-area').style.display = 'none';
+            item.querySelector('.edit-area').style.display = 'block';
+            item.querySelector('.mistake-actions').style.display = 'none';
+        }
+
+        async function saveMistake(id) {
+            const item = document.getElementById(`mistake-${id}`);
+            const content = item.querySelector('.edit-content').value;
+            
+            try {
+                const response = await fetch(`/api/mistakes/${id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ content })
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    log('保存成功！');
+                    await loadMistakes();
+                } else {
+                    log(`保存失败：${data.error}`);
+                    alert('保存失败');
+                }
+            } catch (error) {
+                log(`错误：${error.message}`);
+                alert('保存失败');
+            }
+        }
+
+        async function deleteMistake(id) {
+            if (!confirm('确定要删除这条记录吗？')) return;
+            
+            try {
+                const response = await fetch(`/api/mistakes/${id}`, {
+                    method: 'DELETE'
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    log('删除成功！');
+                    await loadMistakes();
+                } else {
+                    log(`删除失败：${data.error}`);
+                    alert('删除失败');
+                }
+            } catch (error) {
+                log(`错误：${error.message}`);
+                alert('删除失败');
+            }
+        }
+
+        function cancelEdit(id) {
+            const item = document.getElementById(`mistake-${id}`);
+            item.classList.remove('editing');
+            item.querySelector('.content-area').style.display = 'block';
+            item.querySelector('.edit-area').style.display = 'none';
+            item.querySelector('.mistake-actions').style.display = 'block';
+        }
+
+        // 修改加载错题列表的函数
+        async function loadMistakes() {
+            try {
+                const response = await fetch('/api/mistakes');
+                const mistakes = await response.json();
+                
+                const mistakeList = document.getElementById('mistakeList');
+                mistakeList.innerHTML = mistakes.map(renderMistake).join('');
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+
+        // 页面加载时获取错题列表
+        loadMistakes();
+
+        async function analyzeSelected() {
+            const selected = Array.from(document.querySelectorAll('.mistake-select:checked'))
+                .map(checkbox => parseInt(checkbox.closest('.mistake-item').id.split('-')[1]));
+            
+            if (selected.length === 0) {
+                alert('请先选择要分析的错题');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/mistakes/analyze', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ mistake_ids: selected })
+                });
+                
+                // 记录响应状态
+                log(`响应状态码: ${response.status}`);
+                
+                // 获取响应内容
+                const data = await response.json();
+                log(`响应内容: ${JSON.stringify(data, null, 2)}`);
+                
+                if (data.success) {
+                    log('分析成功！');
+                    await loadMistakes();
+                } else {
+                    log(`分析失败：${data.error}\n详细信息：${data.detail}\n错误堆栈：${data.traceback}`);
+                    alert('分析失败');
+                }
+            } catch (error) {
+                console.error('分析错误:', error);
+                // 直接记录完整的错误信息
+                log('分析错误:');
+                log(`错误消息: ${error.message}`);
+                if (error.response) {
+                    log(`响应状态: ${error.response.status}`);
+                    log(`响应数据: ${JSON.stringify(error.response.data, null, 2)}`);
+                }
+                log(`错误堆栈: ${error.stack}`);
+            }
+        }
+    </script>
+</body>
+</html>

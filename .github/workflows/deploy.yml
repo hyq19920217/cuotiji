@@ -1,0 +1,39 @@
+name: Deploy to Tencent Cloud
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      
+      - name: Install SSH key
+        uses: shimataro/ssh-key-action@v2
+        with:
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          known_hosts: unnecessary
+          if_key_exists: replace
+      
+      - name: Adding Known Hosts
+        run: ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy with rsync
+        run: |
+          ssh ubuntu@${{ secrets.SERVER_HOST }} 'mkdir -p /home/ubuntu/deepseek_service'
+          rsync -avz --exclude '.git' ./ ubuntu@${{ secrets.SERVER_HOST }}:/home/ubuntu/
+          ssh ubuntu@${{ secrets.SERVER_HOST }} '
+            cd /home/ubuntu && 
+            # 更新配置文件
+            sed -i "s/BAIDU_APP_ID_PLACEHOLDER/6291321/g" .env &&
+            sed -i "s/BAIDU_API_KEY_PLACEHOLDER/wLM7cnS4a9KCoE7XoU3HJoe3/g" .env &&
+            sed -i "s/BAIDU_SECRET_KEY_PLACEHOLDER/8mUTmIMrVc8vChAimNohuef2SbOpKmPT/g" .env &&
+            sed -i "s/DEEPSEEK_API_KEY_PLACEHOLDER/${{ secrets.DEEPSEEK_API_KEY }}/g" .env &&
+            # 安装依赖
+            pip install -r requirements.txt && 
+            sudo supervisorctl reread &&
+            sudo supervisorctl update &&
+            sudo supervisorctl restart cuotiji
+          ' 
