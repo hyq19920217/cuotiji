@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, make_response
 from flask_sqlalchemy import SQLAlchemy
 from aip import AipOcr
 import os
@@ -9,6 +9,9 @@ import requests
 from PIL import Image
 import pillow_heif  # 需要添加这个库来支持 HEIF 格式
 import io
+from datetime import datetime
+import pdfkit
+from jinja2 import Template
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -354,6 +357,89 @@ def batch_delete_mistakes():
         print(f"批量删除失败: {str(e)}")
         return jsonify({
             'error': '删除失败',
+            'detail': str(e)
+        }), 500
+
+@app.route('/api/mistakes/export', methods=['POST'])
+def export_mistakes():
+    try:
+        data = request.get_json()
+        mistake_ids = data.get('mistake_ids', [])
+        export_type = data.get('export_type', 'questions')
+        
+        if not mistake_ids:
+            return jsonify({'error': '没有选择要导出的错题'}), 400
+            
+        mistakes = Mistake.query.filter(Mistake.id.in_(mistake_ids)).all()
+        
+        # 准备 HTML 模板
+        html_template = """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <style>
+                body { font-family: Arial, sans-serif; }
+                .mistake { margin-bottom: 30px; page-break-inside: avoid; }
+                .content { white-space: pre-wrap; margin: 10px 0; }
+                .analysis { margin-top: 10px; background: #f5f5f5; padding: 10px; }
+                .tags { margin-top: 10px; }
+                .tag { display: inline-block; margin: 2px; padding: 2px 8px; background: #eee; border-radius: 12px; }
+            </style>
+        </head>
+        <body>
+            <h1>错题集</h1>
+            <p>导出时间：{{ export_time }}</p>
+            {% for mistake in mistakes %}
+            <div class="mistake">
+                <h3>错题 {{ loop.index }}</h3>
+                <div class="content">{{ mistake.content }}</div>
+                {% if export_type == 'full' and mistake.analysis %}
+                <div class="analysis">
+                    <h4>分析结果：</h4>
+                    <div>{{ mistake.analysis }}</div>
+                    {% if mistake.tags %}
+                    <div class="tags">
+                        <h4>知识点标签：</h4>
+                        {% for tag in tags[loop.index0] %}
+                        <span class="tag">{{ tag }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </body>
+        </html>
+        """
+        
+        # 准备模板数据
+        template_data = {
+            'mistakes': mistakes,
+            'export_type': export_type,
+            'export_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'tags': [json.loads(m.tags) if m.tags else [] for m in mistakes]
+        }
+        
+        # 渲染 HTML
+        template = Template(html_template)
+        html_content = template.render(**template_data)
+        
+        # 生成 PDF
+        pdf = pdfkit.from_string(html_content, False)
+        
+        # 准备响应
+        response = make_response(pdf)
+        response.headers['Content-Type'] = 'application/pdf'
+        response.headers['Content-Disposition'] = f'attachment; filename=mistakes_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pdf'
+        
+        return response
+        
+    except Exception as e:
+        print(f"导出错误: {str(e)}")
+        return jsonify({
+            'error': '导出失败',
             'detail': str(e)
         }), 500
 

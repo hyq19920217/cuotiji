@@ -179,6 +179,16 @@
                 border: none;
                 border-radius: 4px;
                 cursor: pointer;">批量删除</button>
+            <button onclick="showExportDialog()" style="
+                margin-left: 10px;
+                padding: 10px;
+                background-color: #17a2b8;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;">
+                <i class="fas fa-file-export"></i> 导出PDF
+            </button>
         </div>
         <div id="mistakeList"></div>
     </div>
@@ -254,6 +264,44 @@
                     border: none;
                     border-radius: 4px;
                     cursor: pointer;">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 添加导出选项对话框 -->
+    <div id="exportDialog" class="modal">
+        <div class="modal-content" style="max-width: 400px;">
+            <h3>导出选项</h3>
+            <div style="margin: 20px 0;">
+                <div style="margin-bottom: 15px;">
+                    <label>
+                        <input type="radio" name="exportType" value="questions" checked>
+                        仅导出错题
+                    </label>
+                </div>
+                <div>
+                    <label>
+                        <input type="radio" name="exportType" value="full">
+                        导出错题和分析结果
+                    </label>
+                </div>
+            </div>
+            <div style="text-align: right;">
+                <button onclick="closeExportDialog()" style="
+                    padding: 8px 16px;
+                    margin-right: 10px;
+                    background-color: #6c757d;
+                    color: white;
+                    border: none;
+                    border-radius: 4px;
+                    cursor: pointer;">取消</button>
+                <button onclick="exportPDF()" style="
+                    padding: 8px 16px;
+                    background-color: #17a2b8;
+                    color: white;
+                    border: none;
+                    border-radius: 4px;
+                    cursor: pointer;">确认导出</button>
             </div>
         </div>
     </div>
@@ -738,6 +786,68 @@
             document.getElementById('imageInput').value = '';
             // 添加日志
             log('已清空识别结果');
+        }
+
+        // 添加导出相关函数
+        function showExportDialog() {
+            const selected = Array.from(document.querySelectorAll('.mistake-select:checked'))
+                .map(checkbox => parseInt(checkbox.closest('.mistake-item').id.split('-')[1]));
+            
+            if (selected.length === 0) {
+                alert('请先选择要导出的错题');
+                return;
+            }
+            
+            document.getElementById('exportDialog').style.display = 'block';
+        }
+
+        function closeExportDialog() {
+            document.getElementById('exportDialog').style.display = 'none';
+        }
+
+        async function exportPDF() {
+            const selected = Array.from(document.querySelectorAll('.mistake-select:checked'))
+                .map(checkbox => parseInt(checkbox.closest('.mistake-item').id.split('-')[1]));
+            
+            const exportType = document.querySelector('input[name="exportType"]:checked').value;
+            
+            try {
+                log('正在生成PDF...');
+                const response = await fetch('/api/mistakes/export', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        mistake_ids: selected,
+                        export_type: exportType
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('导出失败');
+                }
+                
+                // 获取文件名
+                const filename = response.headers.get('Content-Disposition')?.split('filename=')[1] || 'mistakes.pdf';
+                
+                // 下载文件
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+                
+                log('PDF导出成功！');
+                closeExportDialog();
+            } catch (error) {
+                log(`导出失败：${error.message}`);
+                alert('导出失败，请查看日志了解详情');
+            }
         }
     </script>
 </body>
