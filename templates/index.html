@@ -248,13 +248,35 @@
         </div>
     </div>
 
-    <!-- 添加裁剪对话框 -->
+    <!-- 修改裁剪对话框 -->
     <div id="cropperModal" class="modal">
         <div class="modal-content">
             <h3>裁剪图片</h3>
             <p style="color: #666; margin-bottom: 15px;">
                 请框选需要识别的区域，选择完成后点击"确认并上传"
             </p>
+            <div style="margin-bottom: 15px;">
+                <button onclick="removeHandwriting()" style="
+                    padding: 8px 16px;
+                    background-color: #6c757d;
+                    color: white;
+                    border: none;
+                    border-radius: 4px;
+                    cursor: pointer;">
+                    <i class="fas fa-eraser"></i> 去除手写痕迹
+                </button>
+                <button onclick="resetImage()" style="
+                    padding: 8px 16px;
+                    margin-left: 10px;
+                    background-color: #6c757d;
+                    color: white;
+                    border: none;
+                    border-radius: 4px;
+                    cursor: pointer;
+                    display: none;" id="resetButton">
+                    <i class="fas fa-undo"></i> 还原图片
+                </button>
+            </div>
             <div class="cropper-container">
                 <img id="cropperImage" src="">
             </div>
@@ -349,6 +371,7 @@
 
         let cropper = null;
         let originalFile = null;
+        let originalImageData = null;
 
         // 修改文件选择处理，添加 click 事件清空 value
         document.getElementById('imageInput').addEventListener('click', function(e) {
@@ -939,6 +962,88 @@
                 exportText.style.display = 'inline-block';
                 exportLoading.style.display = 'none';
             }
+        }
+
+        async function removeHandwriting() {
+            if (!cropper) return;
+            
+            try {
+                // 保存原始图片数据
+                if (!originalImageData) {
+                    originalImageData = cropper.getCroppedCanvas().toDataURL();
+                }
+                
+                // 获取当前裁剪区域的图片
+                const canvas = cropper.getCroppedCanvas();
+                const blob = await new Promise(resolve => canvas.toBlob(resolve));
+                
+                // 创建 FormData
+                const formData = new FormData();
+                formData.append('image', blob);
+                
+                // 发送到服务器处理
+                const response = await fetch('/api/process-image', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (!response.ok) {
+                    throw new Error('图像处理失败');
+                }
+                
+                // 获取处理后的图片
+                const processedBlob = await response.blob();
+                const processedUrl = URL.createObjectURL(processedBlob);
+                
+                // 更新裁剪器中的图片
+                cropper.destroy();
+                const cropperImage = document.getElementById('cropperImage');
+                cropperImage.src = processedUrl;
+                
+                cropper = new Cropper(cropperImage, {
+                    aspectRatio: NaN,
+                    viewMode: 1,
+                    autoCropArea: 1,
+                    background: false,
+                    guides: true,
+                    movable: true,
+                    rotatable: true,
+                    scalable: true,
+                    zoomable: true,
+                });
+                
+                // 显示重置按钮
+                document.getElementById('resetButton').style.display = 'inline-block';
+                
+            } catch (error) {
+                console.error('Error:', error);
+                alert('处理图片失败：' + error.message);
+            }
+        }
+        
+        function resetImage() {
+            if (!originalImageData || !cropper) return;
+            
+            // 恢复原始图片
+            cropper.destroy();
+            const cropperImage = document.getElementById('cropperImage');
+            cropperImage.src = originalImageData;
+            
+            cropper = new Cropper(cropperImage, {
+                aspectRatio: NaN,
+                viewMode: 1,
+                autoCropArea: 1,
+                background: false,
+                guides: true,
+                movable: true,
+                rotatable: true,
+                scalable: true,
+                zoomable: true,
+            });
+            
+            // 隐藏重置按钮
+            document.getElementById('resetButton').style.display = 'none';
+            originalImageData = null;
         }
     </script>
 </body>

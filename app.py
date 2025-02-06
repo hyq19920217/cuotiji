@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, render_template, make_response
+from flask import Flask, request, jsonify, render_template, make_response, send_file
 from flask_sqlalchemy import SQLAlchemy
 from aip import AipOcr
 import os
@@ -12,6 +12,8 @@ import io
 from datetime import datetime
 import pdfkit
 from jinja2 import Template
+import cv2
+import numpy as np
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -442,6 +444,62 @@ def export_mistakes():
             'error': '导出失败',
             'detail': str(e)
         }), 500
+
+@app.route('/api/process-image', methods=['POST'])
+def process_image():
+    try:
+        if 'image' not in request.files:
+            return jsonify({'error': '没有上传文件'}), 400
+            
+        file = request.files['image']
+        # 读取图片为 OpenCV 格式
+        nparr = np.frombuffer(file.read(), np.uint8)
+        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        
+        # 转换为 HSV 颜色空间
+        hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+        
+        # 定义红色范围（包括深红和亮红）
+        lower_red1 = np.array([0, 50, 50])
+        upper_red1 = np.array([10, 255, 255])
+        lower_red2 = np.array([170, 50, 50])
+        upper_red2 = np.array([180, 255, 255])
+        
+        # 创建红色掩码
+        mask1 = cv2.inRange(hsv, lower_red1, upper_red1)
+        mask2 = cv2.inRange(hsv, lower_red2, upper_red2)
+        red_mask = mask1 + mask2
+        
+        # 去除红色
+        img_no_red = img.copy()
+        img_no_red[red_mask > 0] = 255  # 将红色区域设为白色
+        
+        # 转换为灰度图
+        gray = cv2.cvtColor(img_no_red, cv2.COLOR_BGR2GRAY)
+        
+        # 自适应二值化
+        binary = cv2.adaptiveThreshold(
+            gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
+            cv2.THRESH_BINARY, 11, 2
+        )
+        
+        # 转换回 PIL Image
+        processed_img = Image.fromarray(binary)
+        
+        # 保存到内存
+        img_byte_arr = io.BytesIO()
+        processed_img.save(img_byte_arr, format='PNG')
+        img_byte_arr = img_byte_arr.getvalue()
+        
+        return send_file(
+            io.BytesIO(img_byte_arr),
+            mimetype='image/png',
+            as_attachment=False
+        )
+        
+    except Exception as e:
+        print(f"图像处理错误: {str(e)}")
+        return jsonify({'error': '图像处理失败', 'detail': str(e)}), 500
 
 if __name__ == '__main__':
     with app.app_context():
