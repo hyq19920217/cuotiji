@@ -148,7 +148,22 @@
     
     <div class="upload-area">
         <h2>上传图片</h2>
-        <input type="file" id="imageInput" accept="image/*">
+        <div style="display: flex; flex-direction: column; align-items: center;">
+            <input type="file" id="imageInput" accept="image/*" style="margin-bottom: 10px;">
+            <div id="uploadProgress" style="
+                width: 100%;
+                max-width: 400px;
+                margin-top: 10px;
+                padding: 10px;
+                border-radius: 4px;
+                background-color: #f8f9fa;
+                display: none;">
+                <p style="margin: 0; color: #666;">
+                    <i class="fas fa-info-circle"></i> 
+                    <span id="uploadStatus">正在处理图片...</span>
+                </p>
+            </div>
+        </div>
     </div>
 
     <div id="result">
@@ -252,7 +267,9 @@
                     border: none;
                     border-radius: 4px;
                     cursor: pointer;">
-                    <span id="cropConfirmText">确认并上传</span>
+                    <span id="cropConfirmText">
+                        <i class="fas fa-crop-alt"></i> 确认并上传
+                    </span>
                     <span id="cropLoadingText" style="display: none;">
                         <i class="fas fa-spinner fa-spin"></i> 正在处理...
                     </span>
@@ -412,9 +429,15 @@
         async function uploadCroppedImage(file) {
             const formData = new FormData();
             formData.append('image', file);
+            
+            const uploadProgress = document.getElementById('uploadProgress');
+            const uploadStatus = document.getElementById('uploadStatus');
+            uploadProgress.style.display = 'block';
 
             try {
                 log('正在上传裁剪后的图片...');
+                uploadStatus.textContent = '正在上传图片...';
+                
                 const response = await fetch('/api/upload', {
                     method: 'POST',
                     body: formData
@@ -423,8 +446,16 @@
                 
                 if (data.success) {
                     log('上传成功！');
+                    uploadStatus.textContent = '图片上传成功，正在识别文字...';
+                    
                     if (data.text) {
                         log(`识别结果：\n${data.text}`);
+                        uploadStatus.textContent = '文字识别成功！';
+                        // 短暂延迟后隐藏进度提示
+                        setTimeout(() => {
+                            uploadProgress.style.display = 'none';
+                        }, 1500);
+                        
                         document.getElementById('result').innerHTML = `
                             <h3>识别结果：</h3>
                             <div class="ocr-result">
@@ -437,24 +468,30 @@
                                         color: white;
                                         border: none;
                                         border-radius: 4px;
-                                        cursor: pointer;">清空</button>
+                                        cursor: pointer;">
+                                        <i class="fas fa-times"></i> 清空
+                                    </button>
                                     <button onclick="saveOcrResult()" style="
                                         padding: 8px 16px;
                                         background-color: #4CAF50;
                                         color: white;
                                         border: none;
                                         border-radius: 4px;
-                                        cursor: pointer;">保存到错题集</button>
+                                        cursor: pointer;">
+                                        <i class="fas fa-save"></i> 保存到错题集
+                                    </button>
                                 </div>
                             </div>
                         `;
                     }
                 } else {
                     log(`错误：${data.error || '上传失败'}`);
+                    uploadStatus.textContent = '上传失败：' + (data.error || '未知错误');
                     alert(data.error || '上传失败');
                 }
             } catch (error) {
                 log(`错误：${error.message}`);
+                uploadStatus.textContent = '处理失败：' + error.message;
                 alert('上传失败');
             }
         }
