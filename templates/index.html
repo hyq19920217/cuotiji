@@ -123,7 +123,10 @@
     </div>
 
     <div class="mistake-list">
-        <h2>错题列表</h2>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h2>错题列表</h2>
+            <span style="color: #666;">共 <span id="mistakeCount">0</span> 道错题</span>
+        </div>
         <div class="list-actions" style="margin: 10px 0;">
             <label style="margin-right: 15px;">
                 <input type="checkbox" id="selectAll" onclick="toggleSelectAll()">
@@ -415,6 +418,9 @@
                 
                 const mistakeList = document.getElementById('mistakeList');
                 mistakeList.innerHTML = mistakes.map(renderMistake).join('');
+                
+                // 更新错题数量
+                document.getElementById('mistakeCount').textContent = mistakes.length;
             } catch (error) {
                 console.error('Error:', error);
             }

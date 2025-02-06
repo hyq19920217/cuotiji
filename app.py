@@ -25,7 +25,7 @@ class Mistake(db.Model):
     image_path = db.Column(db.String(255))
     created_at = db.Column(db.DateTime, server_default=db.func.now())
     tags = db.Column(db.Text)  # 存储JSON格式的标签列表
-    analysis = db.Column(db.Text)  # 存储大模型的分析结果
+    analysis = db.Column(db.Text)  # 存储分析结果
 
 # 初始化百度OCR客户端
 ocr_client = AipOcr(app.config['BAIDU_APP_ID'],
@@ -191,8 +191,20 @@ def analyze_mistakes():
         mistake_ids = data.get('mistake_ids', [])
         
         mistakes = Mistake.query.filter(Mistake.id.in_(mistake_ids)).all()
+        results = []
         
         for mistake in mistakes:
+            # 如果已经有分析结果且不需要刷新，直接返回
+            if mistake.analysis and mistake.tags and not data.get('refresh', False):
+                results.append({
+                    'id': mistake.id,
+                    'content': mistake.content,
+                    'tags': json.loads(mistake.tags),
+                    'analysis': mistake.analysis
+                })
+                continue
+                
+            # 调用 API 进行分析
             system_prompt = """
             你是一个教育专家。请分析题目并提取知识点，以 JSON 格式输出。输出应包含以下字段：
             - tags: 知识点标签数组
@@ -258,25 +270,26 @@ def analyze_mistakes():
                 print(f"成功提取分析结果: {analysis}")
                 print(f"提取的标签: {tags}")
                 
-                # 更新数据库
+                # 保存分析结果到数据库
                 mistake.analysis = analysis
                 mistake.tags = json.dumps(tags, ensure_ascii=False)
+                results.append({
+                    'id': mistake.id,
+                    'content': mistake.content,
+                    'tags': tags,
+                    'analysis': analysis
+                })
             except Exception as e:
                 print(f"解析响应失败: {str(e)}")
                 raise Exception(f"解析模型响应失败: {str(e)}")
 
             db.session.commit()
-            
-            return jsonify({
-                'success': True,
-                'message': f'成功分析 {len(mistakes)} 道题目',
-                'results': [{
-                    'id': mistake.id,
-                    'content': mistake.content,
-                    'tags': json.loads(mistake.tags) if mistake.tags else [],
-                    'analysis': mistake.analysis
-                } for mistake in mistakes]
-            })
+        
+        return jsonify({
+            'success': True,
+            'message': f'成功分析 {len(mistakes)} 道题目',
+            'results': results
+        })
         
     except Exception as e:
         error_detail = str(e)
