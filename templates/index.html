@@ -366,7 +366,21 @@
                             <div class="ocr-result">
                                 <textarea id="ocrText" style="width: 100%; min-height: 100px; padding: 10px; margin: 10px 0; border: 1px solid #ced4da; border-radius: 4px;">${data.text}</textarea>
                                 <div style="text-align: right; margin-top: 10px;">
-                                    <button onclick="saveOcrResult()">保存到错题集</button>
+                                    <button onclick="clearOcrResult()" style="
+                                        margin-right: 10px;
+                                        padding: 8px 16px;
+                                        background-color: #6c757d;
+                                        color: white;
+                                        border: none;
+                                        border-radius: 4px;
+                                        cursor: pointer;">清空</button>
+                                    <button onclick="saveOcrResult()" style="
+                                        padding: 8px 16px;
+                                        background-color: #4CAF50;
+                                        color: white;
+                                        border: none;
+                                        border-radius: 4px;
+                                        cursor: pointer;">保存到错题集</button>
                                 </div>
                             </div>
                         `;
@@ -714,6 +728,16 @@
             selectAllCheckbox.checked = allChecked;
             // 设置半选状态
             selectAllCheckbox.indeterminate = anyChecked && !allChecked;
+        }
+
+        // 添加清空识别结果的函数
+        function clearOcrResult() {
+            // 清空识别结果区域
+            document.getElementById('result').innerHTML = '';
+            // 清空文件选择器
+            document.getElementById('imageInput').value = '';
+            // 添加日志
+            log('已清空识别结果');
         }
     </script>
 </body>
