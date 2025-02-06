@@ -229,7 +229,13 @@ def analyze_mistakes():
             
             return jsonify({
                 'success': True,
-                'message': f'成功分析 {len(mistakes)} 道题目'
+                'message': f'成功分析 {len(mistakes)} 道题目',
+                'results': [{
+                    'id': mistake.id,
+                    'content': mistake.content,
+                    'tags': json.loads(mistake.tags) if mistake.tags else [],
+                    'analysis': mistake.analysis
+                } for mistake in mistakes]
             })
         
     except Exception as e:
