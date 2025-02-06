@@ -39,6 +39,24 @@ def index():
 @app.route('/api/upload', methods=['POST'])
 def upload_image():
     try:
+        # 处理直接保存文本的情况
+        if request.is_json:
+            data = request.get_json()
+            text = data.get('text')
+            if not text:
+                return jsonify({'error': '文本内容为空'}), 400
+                
+            # 保存到数据库
+            mistake = Mistake(content=text)
+            db.session.add(mistake)
+            db.session.commit()
+            
+            return jsonify({
+                'success': True,
+                'id': mistake.id
+            })
+        
+        # 处理图片上传的情况
         if 'image' not in request.files:
             return jsonify({'error': '没有上传文件', 'detail': 'No image in request.files'}), 400
         

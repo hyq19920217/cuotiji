@@ -190,16 +190,21 @@
             }
         }
 
-        // 添加保存 OCR 结果的函数
+        // 修改保存 OCR 结果的函数
         async function saveOcrResult() {
             const content = document.getElementById('ocrText').value;
+            if (!content.trim()) {
+                alert('内容不能为空');
+                return;
+            }
+            
             try {
-                const response = await fetch('/api/upload', {
+                const response = await fetch('/api/mistakes', {  // 改用 mistakes API
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ text: content })
+                    body: JSON.stringify({ content: content })
                 });
                 
                 const data = await response.json();
@@ -210,11 +215,11 @@
                     document.getElementById('result').innerHTML = '';
                 } else {
                     log(`保存失败：${data.error}`);
-                    alert('保存失败');
+                    alert('保存失败：' + (data.error || '未知错误'));
                 }
             } catch (error) {
                 log(`错误：${error.message}`);
-                alert('保存失败');
+                alert('保存失败：' + error.message);
             }
         }
 
