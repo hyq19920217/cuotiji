@@ -113,7 +113,9 @@
         <button onclick="uploadImage()">上传并识别</button>
     </div>
 
-    <div id="result"></div>
+    <div id="result">
+        <!-- 这里会显示识别结果 -->
+    </div>
     
     <div class="log-area">
         <h2>操作日志</h2>
@@ -167,12 +169,16 @@
                         log(`识别结果：\n${data.text}`);
                         document.getElementById('result').innerHTML = `
                             <h3>识别结果：</h3>
-                            <pre>${data.text}</pre>
+                            <div class="ocr-result">
+                                <textarea id="ocrText" style="width: 100%; min-height: 100px; padding: 10px; margin: 10px 0; border: 1px solid #ced4da; border-radius: 4px;">${data.text}</textarea>
+                                <div style="text-align: right; margin-top: 10px;">
+                                    <button onclick="saveOcrResult()">保存到错题集</button>
+                                </div>
+                            </div>
                         `;
                     } else {
                         log('警告：识别结果为空');
                     }
-                    loadMistakes();
                 } else {
                     log(`错误：${data.error || '上传失败'}\n详情：${data.detail || '无'}`);
                     alert(data.error || '上传失败');
@@ -181,6 +187,34 @@
                 log(`错误：${error.message}`);
                 console.error('Error:', error);
                 alert('上传失败');
+            }
+        }
+
+        // 添加保存 OCR 结果的函数
+        async function saveOcrResult() {
+            const content = document.getElementById('ocrText').value;
+            try {
+                const response = await fetch('/api/upload', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ text: content })
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    log('保存成功！');
+                    loadMistakes();  // 刷新错题列表
+                    // 清空识别结果区域
+                    document.getElementById('result').innerHTML = '';
+                } else {
+                    log(`保存失败：${data.error}`);
+                    alert('保存失败');
+                }
+            } catch (error) {
+                log(`错误：${error.message}`);
+                alert('保存失败');
             }
         }
 
@@ -224,8 +258,7 @@
                     <p><strong>时间：</strong>${mistake.created_at}</p>
                     <div class="content-area">
                         <p><strong>内容：</strong></p>
-                        <pre class="content" onclick="editMistake(${mistake.id})">${mistake.content}</pre>
-                        <button class="edit-button" onclick="editMistake(${mistake.id})">编辑</button>
+                        <pre class="content">${mistake.content}</pre>
                     </div>
                     <div class="edit-area" style="display: none;">
                         <textarea class="edit-content" oninput="autoResize(this)">${mistake.content}</textarea>
