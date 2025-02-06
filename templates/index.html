@@ -147,7 +147,35 @@
         }
 
         function renderMistake(mistake) {
-            const tags = mistake.tags ? JSON.parse(mistake.tags) : [];
+            // 解析标签和分析结果
+            let tagsHtml = '';
+            let analysisHtml = '';
+            
+            try {
+                // 处理标签
+                if (mistake.tags) {
+                    const tags = typeof mistake.tags === 'string' ? JSON.parse(mistake.tags) : mistake.tags;
+                    tagsHtml = `
+                        <div class="tags">
+                            <h4>知识点标签：</h4>
+                            ${tags.map(tag => `<span class="tag">${tag}</span>`).join('')}
+                        </div>
+                    `;
+                }
+                
+                // 处理分析结果
+                if (mistake.analysis) {
+                    analysisHtml = `
+                        <div class="analysis">
+                            <h4>分析结果：</h4>
+                            <pre style="white-space: pre-wrap; background: #f5f5f5; padding: 10px; border-radius: 4px;">${mistake.analysis}</pre>
+                        </div>
+                    `;
+                }
+            } catch (e) {
+                console.error('Error parsing tags or analysis:', e);
+            }
+
             return `
                 <div class="mistake-item" id="mistake-${mistake.id}">
                     <input type="checkbox" class="mistake-select" onclick="updateSelectedCount()">
@@ -165,15 +193,8 @@
                         <button onclick="saveMistake(${mistake.id})">保存</button>
                         <button onclick="cancelEdit(${mistake.id})">取消</button>
                     </div>
-                    ${mistake.analysis ? `
-                        <div class="analysis">
-                            <p><strong>分析：</strong></p>
-                            <pre>${mistake.analysis}</pre>
-                        </div>
-                    ` : ''}
-                    <div class="tags">
-                        ${tags.map(tag => `<span class="tag">${tag}</span>`).join('')}
-                    </div>
+                    ${analysisHtml}
+                    ${tagsHtml}
                 </div>
             `;
         }
@@ -269,6 +290,7 @@
             }
             
             try {
+                log('开始分析选中的错题...');
                 const response = await fetch('/api/mistakes/analyze', {
                     method: 'POST',
                     headers: {
@@ -277,30 +299,24 @@
                     body: JSON.stringify({ mistake_ids: selected })
                 });
                 
-                // 记录响应状态
-                log(`响应状态码: ${response.status}`);
-                
-                // 获取响应内容
+                log(`服务器响应状态码: ${response.status}`);
                 const data = await response.json();
-                log(`响应内容: ${JSON.stringify(data, null, 2)}`);
                 
                 if (data.success) {
                     log('分析成功！');
-                    await loadMistakes();
+                    if (data.results) {
+                        log(`分析结果: ${JSON.stringify(data.results, null, 2)}`);
+                    }
+                    await loadMistakes();  // 重新加载错题列表以显示分析结果
                 } else {
-                    log(`分析失败：${data.error}\n详细信息：${data.detail}\n错误堆栈：${data.traceback}`);
-                    alert('分析失败');
+                    const errorMessage = `分析失败：${data.error}\n详细信息：${data.detail || '无'}\n${data.traceback || ''}`;
+                    log(errorMessage);
+                    alert('分析失败，请查看日志了解详情');
                 }
             } catch (error) {
-                console.error('分析错误:', error);
-                // 直接记录完整的错误信息
-                log('分析错误:');
-                log(`错误消息: ${error.message}`);
-                if (error.response) {
-                    log(`响应状态: ${error.response.status}`);
-                    log(`响应数据: ${JSON.stringify(error.response.data, null, 2)}`);
-                }
-                log(`错误堆栈: ${error.stack}`);
+                const errorMessage = `分析出错：${error.message}\n${error.stack || ''}`;
+                log(errorMessage);
+                alert('分析过程出错，请查看日志了解详情');
             }
         }
     </script>
