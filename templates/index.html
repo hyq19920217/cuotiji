@@ -162,7 +162,7 @@
 
     <div class="mistake-list">
         <div style="display: flex; justify-content: space-between; align-items: center;">
-            <h2>错题列表</h2>
+        <h2>错题列表</h2>
             <span style="color: #666;">共 <span id="mistakeCount">0</span> 道错题</span>
         </div>
         <div class="list-actions" style="margin: 10px 0;">
@@ -295,13 +295,29 @@
                     border: none;
                     border-radius: 4px;
                     cursor: pointer;">取消</button>
-                <button onclick="exportPDF()" style="
+                <button id="exportButton" onclick="exportPDF()" style="
                     padding: 8px 16px;
                     background-color: #17a2b8;
                     color: white;
                     border: none;
                     border-radius: 4px;
-                    cursor: pointer;">确认导出</button>
+                    cursor: pointer;">
+                    <span id="exportText">确认导出</span>
+                    <span id="exportLoading" style="display: none;">
+                        <i class="fas fa-spinner fa-spin"></i> 正在导出...
+                    </span>
+                </button>
+            </div>
+            <div id="exportProgress" style="
+                margin-top: 15px;
+                padding: 10px;
+                border-radius: 4px;
+                background-color: #f8f9fa;
+                display: none;">
+                <p style="margin: 0; color: #666;">
+                    <i class="fas fa-info-circle"></i> 
+                    <span id="exportStatus">正在生成 PDF，请稍候...</span>
+                </p>
             </div>
         </div>
     </div>
@@ -396,7 +412,7 @@
         async function uploadCroppedImage(file) {
             const formData = new FormData();
             formData.append('image', file);
-            
+
             try {
                 log('正在上传裁剪后的图片...');
                 const response = await fetch('/api/upload', {
@@ -803,6 +819,16 @@
 
         function closeExportDialog() {
             document.getElementById('exportDialog').style.display = 'none';
+            // 重置所有状态
+            const exportButton = document.getElementById('exportButton');
+            const exportText = document.getElementById('exportText');
+            const exportLoading = document.getElementById('exportLoading');
+            const exportProgress = document.getElementById('exportProgress');
+            
+            exportButton.disabled = false;
+            exportText.style.display = 'inline-block';
+            exportLoading.style.display = 'none';
+            exportProgress.style.display = 'none';
         }
 
         async function exportPDF() {
@@ -811,8 +837,22 @@
             
             const exportType = document.querySelector('input[name="exportType"]:checked').value;
             
+            // 更新按钮状态
+            const exportButton = document.getElementById('exportButton');
+            const exportText = document.getElementById('exportText');
+            const exportLoading = document.getElementById('exportLoading');
+            const exportProgress = document.getElementById('exportProgress');
+            const exportStatus = document.getElementById('exportStatus');
+            
+            exportButton.disabled = true;
+            exportText.style.display = 'none';
+            exportLoading.style.display = 'inline-block';
+            exportProgress.style.display = 'block';
+            
             try {
                 log('正在生成PDF...');
+                exportStatus.textContent = '正在收集错题数据...';
+                
                 const response = await fetch('/api/mistakes/export', {
                     method: 'POST',
                     headers: {
@@ -827,6 +867,8 @@
                 if (!response.ok) {
                     throw new Error('导出失败');
                 }
+                
+                exportStatus.textContent = '正在生成 PDF 文件...';
                 
                 // 获取文件名
                 const filename = response.headers.get('Content-Disposition')?.split('filename=')[1] || 'mistakes.pdf';
@@ -843,10 +885,22 @@
                 document.body.removeChild(a);
                 
                 log('PDF导出成功！');
-                closeExportDialog();
+                exportStatus.textContent = 'PDF 生成成功，正在下载...';
+                
+                // 短暂延迟后关闭对话框
+                setTimeout(() => {
+                    closeExportDialog();
+                }, 1500);
+                
             } catch (error) {
                 log(`导出失败：${error.message}`);
                 alert('导出失败，请查看日志了解详情');
+                exportStatus.textContent = '导出失败，请重试';
+            } finally {
+                // 重置按钮状态
+                exportButton.disabled = false;
+                exportText.style.display = 'inline-block';
+                exportLoading.style.display = 'none';
             }
         }
     </script>
