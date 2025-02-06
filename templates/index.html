@@ -6,6 +6,7 @@
     <title>错题集管理系统</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -226,6 +227,9 @@
     <div id="cropperModal" class="modal">
         <div class="modal-content">
             <h3>裁剪图片</h3>
+            <p style="color: #666; margin-bottom: 15px;">
+                请框选需要识别的区域，选择完成后点击"确认并上传"
+            </p>
             <div class="cropper-container">
                 <img id="cropperImage" src="">
             </div>
@@ -237,7 +241,12 @@
                     color: white;
                     border: none;
                     border-radius: 4px;
-                    cursor: pointer;">确认裁剪</button>
+                    cursor: pointer;">
+                    <span id="cropConfirmText">确认并上传</span>
+                    <span id="cropLoadingText" style="display: none;">
+                        <i class="fas fa-spinner fa-spin"></i> 正在处理...
+                    </span>
+                </button>
                 <button onclick="cancelCrop()" style="
                     padding: 8px 16px;
                     background-color: #6c757d;
@@ -300,9 +309,18 @@
             reader.readAsDataURL(file);
         });
 
-        // 确认裁剪函数修改
+        // 修改确认裁剪函数
         async function confirmCrop() {
             if (!cropper) return;
+            
+            // 更新按钮状态
+            const confirmButton = document.querySelector('.cropper-actions button');
+            const confirmText = document.getElementById('cropConfirmText');
+            const loadingText = document.getElementById('cropLoadingText');
+            
+            confirmButton.disabled = true;
+            confirmText.style.display = 'none';
+            loadingText.style.display = 'inline-block';
             
             // 获取裁剪后的图片数据
             const canvas = cropper.getCroppedCanvas();
@@ -318,6 +336,11 @@
                 
                 // 然后上传裁剪后的图片
                 await uploadCroppedImage(croppedFile);
+                
+                // 重置按钮状态
+                confirmButton.disabled = false;
+                confirmText.style.display = 'inline-block';
+                loadingText.style.display = 'none';
             }, originalFile.type);
         }
 
