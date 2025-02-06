@@ -305,9 +305,36 @@
                 if (data.success) {
                     log('分析成功！');
                     if (data.results) {
-                        log(`分析结果: ${JSON.stringify(data.results, null, 2)}`);
+                        // 遍历每个分析结果并更新对应的错题显示
+                        data.results.forEach(result => {
+                            const mistakeElement = document.getElementById(`mistake-${result.id}`);
+                            if (mistakeElement) {
+                                // 创建分析结果区域
+                                const analysisHtml = `
+                                    <div class="analysis-result" style="margin-top: 15px; padding: 10px; background: #f8f9fa; border-radius: 4px;">
+                                        <h4 style="margin-bottom: 10px;">分析结果：</h4>
+                                        <pre style="white-space: pre-wrap; margin-bottom: 10px;">${result.analysis}</pre>
+                                        <h4>知识点标签：</h4>
+                                        <div class="tags" style="margin-top: 5px;">
+                                            ${result.tags.map(tag => 
+                                                `<span class="tag" style="display: inline-block; margin: 2px 4px; padding: 2px 8px; background: #e9ecef; border-radius: 12px;">${tag}</span>`
+                                            ).join('')}
+                                        </div>
+                                    </div>
+                                `;
+                                
+                                // 查找或创建分析结果容器
+                                let analysisContainer = mistakeElement.querySelector('.analysis-result');
+                                if (analysisContainer) {
+                                    analysisContainer.outerHTML = analysisHtml;
+                                } else {
+                                    mistakeElement.querySelector('.content-area').insertAdjacentHTML('afterend', analysisHtml);
+                                }
+                            }
+                        });
+                        
+                        log('分析结果已更新到页面');
                     }
-                    await loadMistakes();  // 重新加载错题列表以显示分析结果
                 } else {
                     const errorMessage = `分析失败：${data.error}\n详细信息：${data.detail || '无'}\n${data.traceback || ''}`;
                     log(errorMessage);
