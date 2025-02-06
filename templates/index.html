@@ -262,8 +262,14 @@
                     color: white;
                     border: none;
                     border-radius: 4px;
-                    cursor: pointer;">
-                    <i class="fas fa-eraser"></i> 去除手写痕迹
+                    cursor: pointer;"
+                    id="removeHandwritingBtn">
+                    <span id="removeHandwritingText">
+                        <i class="fas fa-eraser"></i> 去除手写痕迹
+                    </span>
+                    <span id="removeHandwritingLoading" style="display: none;">
+                        <i class="fas fa-spinner fa-spin"></i> 正在处理...
+                    </span>
                 </button>
                 <button onclick="resetImage()" style="
                     padding: 8px 16px;
@@ -967,6 +973,19 @@
         async function removeHandwriting() {
             if (!cropper) return;
             
+            // 更新按钮状态
+            const button = document.getElementById('removeHandwritingBtn');
+            const text = document.getElementById('removeHandwritingText');
+            const loading = document.getElementById('removeHandwritingLoading');
+            
+            // 如果按钮已禁用，说明正在处理中
+            if (button.disabled) return;
+            
+            // 禁用按钮并显示加载状态
+            button.disabled = true;
+            text.style.display = 'none';
+            loading.style.display = 'inline-block';
+            
             try {
                 // 保存原始图片数据
                 if (!originalImageData) {
@@ -1018,6 +1037,11 @@
             } catch (error) {
                 console.error('Error:', error);
                 alert('处理图片失败：' + error.message);
+            } finally {
+                // 恢复按钮状态
+                button.disabled = false;
+                text.style.display = 'inline-block';
+                loading.style.display = 'none';
             }
         }
         
