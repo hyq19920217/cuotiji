@@ -6,6 +6,9 @@ from config import Config
 import json
 import traceback  # 添加到文件顶部
 import requests
+from PIL import Image
+import pillow_heif  # 需要添加这个库来支持 HEIF 格式
+import io
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -44,12 +47,31 @@ def upload_image():
             return jsonify({'error': '没有选择文件', 'detail': 'No filename'}), 400
         
         if file:
+            # 获取文件扩展名
+            file_ext = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else ''
+            
             # 保存文件
             filename = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
-            try:
-                file.save(filename)
-            except Exception as e:
-                return jsonify({'error': '文件保存失败', 'detail': str(e)}), 500
+            file.save(filename)
+            
+            # 如果是 HEIF/HEIC 格式，转换为 JPEG
+            if file_ext in ['heif', 'heic']:
+                try:
+                    # 读取 HEIF 图片
+                    heif_file = pillow_heif.read_heif(filename)
+                    # 转换为 PIL Image
+                    image = Image.frombytes(
+                        heif_file.mode, 
+                        heif_file.size, 
+                        heif_file.data,
+                        "raw",
+                    )
+                    # 转换为 JPEG 并保存
+                    jpeg_filename = filename.rsplit('.', 1)[0] + '.jpg'
+                    image.save(jpeg_filename, 'JPEG')
+                    filename = jpeg_filename  # 更新文件名为转换后的 JPEG 文件
+                except Exception as e:
+                    return jsonify({'error': 'HEIF 转换失败', 'detail': str(e)}), 500
             
             # 读取图片文件
             try:
