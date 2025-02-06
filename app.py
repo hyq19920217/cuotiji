@@ -287,6 +287,33 @@ def analyze_mistakes():
             'traceback': traceback.format_exc()  # 添加完整的错误堆栈
         }), 500
 
+@app.route('/api/mistakes', methods=['POST'])
+def create_mistake():
+    try:
+        data = request.get_json()
+        content = data.get('content')
+        
+        if not content:
+            return jsonify({'error': '内容不能为空'}), 400
+            
+        # 保存到数据库
+        mistake = Mistake(content=content)
+        db.session.add(mistake)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'id': mistake.id,
+            'message': '保存成功'
+        })
+        
+    except Exception as e:
+        print(f"创建错题失败: {str(e)}")  # 添加日志
+        return jsonify({
+            'error': '保存失败',
+            'detail': str(e)
+        }), 500
+
 def extract_tags(analysis):
     # 简单的标签提取逻辑
     # 这里可以根据实际的返回格式调整
