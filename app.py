@@ -153,7 +153,9 @@ def get_mistakes():
         'id': m.id,
         'content': m.content,
         'image_path': m.image_path,
-        'created_at': m.created_at.strftime('%Y-%m-%d %H:%M:%S')
+        'created_at': m.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+        'tags': json.loads(m.tags) if m.tags else [],  # 添加标签
+        'analysis': m.analysis  # 添加分析结果
     } for m in mistakes])
 
 @app.route('/api/mistakes/<int:mistake_id>', methods=['PUT'])
