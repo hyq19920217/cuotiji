@@ -200,7 +200,6 @@ def analyze_mistakes():
             if mistake.analysis and mistake.tags and not data.get('refresh', False):
                 results.append({
                     'id': mistake.id,
-                    'content': mistake.content,
                     'tags': json.loads(mistake.tags),
                     'analysis': mistake.analysis
                 })
@@ -211,12 +210,6 @@ def analyze_mistakes():
             你是一个教育专家。请分析题目并提取知识点，以 JSON 格式输出。输出应包含以下字段：
             - tags: 知识点标签数组
             - analysis: 详细分析
-            
-            示例输出：
-            {
-                "tags": ["代数", "一元二次方程", "因式分解"],
-                "analysis": "这道题目涉及一元二次方程的求解，需要使用因式分解方法..."
-            }
             """
             
             messages = [
@@ -277,7 +270,6 @@ def analyze_mistakes():
                 mistake.tags = json.dumps(tags, ensure_ascii=False)
                 results.append({
                     'id': mistake.id,
-                    'content': mistake.content,
                     'tags': tags,
                     'analysis': analysis
                 })
@@ -290,16 +282,16 @@ def analyze_mistakes():
         return jsonify({
             'success': True,
             'message': f'成功分析 {len(mistakes)} 道题目',
-            'results': results
+            'results': results  # 只返回分析结果
         })
         
     except Exception as e:
         error_detail = str(e)
-        print(f"分析错误: {error_detail}")  # 添加日志
+        print(f"分析错误: {error_detail}")
         return jsonify({
             'error': '分析失败', 
             'detail': error_detail,
-            'traceback': traceback.format_exc()  # 添加完整的错误堆栈
+            'traceback': traceback.format_exc()
         }), 500
 
 @app.route('/api/mistakes', methods=['POST'])
