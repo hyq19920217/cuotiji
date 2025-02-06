@@ -125,6 +125,10 @@
     <div class="mistake-list">
         <h2>错题列表</h2>
         <div class="list-actions" style="margin: 10px 0;">
+            <label style="margin-right: 15px;">
+                <input type="checkbox" id="selectAll" onclick="toggleSelectAll()">
+                全选
+            </label>
             <button class="analyze-button" onclick="analyzeSelected()">分析选中的错题</button>
             <button class="delete-button" onclick="deleteSelected()" style="
                 margin-left: 10px;
@@ -530,6 +534,28 @@
                 log(`错误：${error.message}`);
                 alert('删除失败：' + error.message);
             }
+        }
+
+        // 添加全选/取消全选函数
+        function toggleSelectAll() {
+            const selectAllCheckbox = document.getElementById('selectAll');
+            const checkboxes = document.querySelectorAll('.mistake-select');
+            
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = selectAllCheckbox.checked;
+            });
+        }
+
+        // 修改 updateSelectedCount 函数来同步全选框状态
+        function updateSelectedCount() {
+            const checkboxes = document.querySelectorAll('.mistake-select');
+            const selectAllCheckbox = document.getElementById('selectAll');
+            const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+            const anyChecked = Array.from(checkboxes).some(cb => cb.checked);
+            
+            selectAllCheckbox.checked = allChecked;
+            // 设置半选状态
+            selectAllCheckbox.indeterminate = anyChecked && !allChecked;
         }
     </script>
 </body>
