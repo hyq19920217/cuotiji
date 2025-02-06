@@ -64,6 +64,44 @@
             border-radius: 12px;
             font-size: 12px;
         }
+        .content-area pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            max-width: 100%;
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            border: 1px solid #e9ecef;
+            min-height: 100px;
+        }
+        .content-area {
+            margin: 10px 0;
+            position: relative;
+        }
+        .edit-button {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            padding: 5px 10px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .edit-button:hover {
+            background: #0056b3;
+        }
+        .edit-area textarea {
+            width: 100%;
+            min-height: 100px;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-family: monospace;
+            resize: vertical;
+        }
     </style>
 </head>
 <body>
@@ -186,10 +224,11 @@
                     <p><strong>时间：</strong>${mistake.created_at}</p>
                     <div class="content-area">
                         <p><strong>内容：</strong></p>
-                        <pre class="content">${mistake.content}</pre>
+                        <pre class="content" onclick="editMistake(${mistake.id})">${mistake.content}</pre>
+                        <button class="edit-button" onclick="editMistake(${mistake.id})">编辑</button>
                     </div>
                     <div class="edit-area" style="display: none;">
-                        <textarea class="edit-content" style="width: 100%; min-height: 100px;">${mistake.content}</textarea>
+                        <textarea class="edit-content" oninput="autoResize(this)">${mistake.content}</textarea>
                         <button onclick="saveMistake(${mistake.id})">保存</button>
                         <button onclick="cancelEdit(${mistake.id})">取消</button>
                     </div>
@@ -202,9 +241,18 @@
         async function editMistake(id) {
             const item = document.getElementById(`mistake-${id}`);
             item.classList.add('editing');
-            item.querySelector('.content-area').style.display = 'none';
-            item.querySelector('.edit-area').style.display = 'block';
-            item.querySelector('.mistake-actions').style.display = 'none';
+            const contentArea = item.querySelector('.content-area');
+            const editArea = item.querySelector('.edit-area');
+            const textarea = editArea.querySelector('textarea');
+            
+            contentArea.style.display = 'none';
+            editArea.style.display = 'block';
+            
+            // 自动调整文本框大小
+            autoResize(textarea);
+            // 聚焦并将光标移到末尾
+            textarea.focus();
+            textarea.setSelectionRange(textarea.value.length, textarea.value.length);
         }
 
         async function saveMistake(id) {
@@ -262,6 +310,12 @@
             item.querySelector('.content-area').style.display = 'block';
             item.querySelector('.edit-area').style.display = 'none';
             item.querySelector('.mistake-actions').style.display = 'block';
+        }
+
+        // 添加自动调整文本框大小的函数
+        function autoResize(textarea) {
+            textarea.style.height = 'auto';
+            textarea.style.height = textarea.scrollHeight + 'px';
         }
 
         // 修改加载错题列表的函数
