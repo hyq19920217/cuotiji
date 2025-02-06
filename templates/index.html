@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>错题集管理系统</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -102,6 +104,42 @@
             font-family: monospace;
             resize: vertical;
         }
+        .cropper-container {
+            margin: 20px auto;
+            max-width: 500px;
+            height: 400px;
+        }
+        #cropperImage {
+            max-width: 100%;
+            display: none;
+        }
+        .cropper-preview {
+            overflow: hidden;
+            margin: 10px auto;
+            background: #f8f9fa;
+        }
+        .cropper-actions {
+            text-align: center;
+            margin: 10px 0;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+        }
+        .modal-content {
+            position: relative;
+            margin: 20px auto;
+            padding: 20px;
+            background: white;
+            max-width: 800px;
+            border-radius: 8px;
+        }
     </style>
 </head>
 <body>
@@ -110,7 +148,6 @@
     <div class="upload-area">
         <h2>上传图片</h2>
         <input type="file" id="imageInput" accept="image/*">
-        <button onclick="uploadImage()">上传并识别</button>
     </div>
 
     <div id="result">
@@ -185,6 +222,33 @@
         </div>
     </div>
 
+    <!-- 添加裁剪对话框 -->
+    <div id="cropperModal" class="modal">
+        <div class="modal-content">
+            <h3>裁剪图片</h3>
+            <div class="cropper-container">
+                <img id="cropperImage" src="">
+            </div>
+            <div class="cropper-actions">
+                <button onclick="confirmCrop()" style="
+                    padding: 8px 16px;
+                    margin-right: 10px;
+                    background-color: #4CAF50;
+                    color: white;
+                    border: none;
+                    border-radius: 4px;
+                    cursor: pointer;">确认裁剪</button>
+                <button onclick="cancelCrop()" style="
+                    padding: 8px 16px;
+                    background-color: #6c757d;
+                    color: white;
+                    border: none;
+                    border-radius: 4px;
+                    cursor: pointer;">取消</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         function log(message) {
             const logArea = document.getElementById('logArea');
@@ -193,29 +257,76 @@
             logArea.scrollTop = logArea.scrollHeight;
         }
 
-        // 上传图片
-        async function uploadImage() {
-            const input = document.getElementById('imageInput');
-            const file = input.files[0];
-            if (!file) {
-                log('错误：没有选择文件');
-                alert('请选择图片');
-                return;
-            }
+        let cropper = null;
+        let originalFile = null;
 
-            log(`开始上传文件：${file.name}`);
+        // 修改文件选择处理
+        document.getElementById('imageInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            originalFile = file;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const cropperImage = document.getElementById('cropperImage');
+                cropperImage.src = e.target.result;
+                cropperImage.style.display = 'block';
+                
+                // 显示裁剪对话框
+                document.getElementById('cropperModal').style.display = 'block';
+                
+                // 初始化裁剪器
+                if (cropper) {
+                    cropper.destroy();
+                }
+                cropper = new Cropper(cropperImage, {
+                    aspectRatio: NaN,  // 自由比例
+                    viewMode: 1,
+                    autoCropArea: 1,
+                    background: false,
+                    guides: true,
+                    movable: true,
+                    rotatable: true,
+                    scalable: true,
+                    zoomable: true,
+                });
+            };
+            reader.readAsDataURL(file);
+        });
+
+        // 确认裁剪
+        async function confirmCrop() {
+            if (!cropper) return;
+            
+            // 获取裁剪后的图片数据
+            const canvas = cropper.getCroppedCanvas();
+            canvas.toBlob(async function(blob) {
+                // 创建新的 File 对象
+                const croppedFile = new File([blob], originalFile.name, {
+                    type: originalFile.type,
+                    lastModified: new Date().getTime()
+                });
+                
+                // 上传裁剪后的图片
+                await uploadCroppedImage(croppedFile);
+                
+                // 关闭裁剪对话框
+                closeCropperModal();
+            }, originalFile.type);
+        }
+
+        // 上传裁剪后的图片
+        async function uploadCroppedImage(file) {
             const formData = new FormData();
             formData.append('image', file);
-
+            
             try {
-                log('正在发送请求...');
+                log('正在上传裁剪后的图片...');
                 const response = await fetch('/api/upload', {
                     method: 'POST',
                     body: formData
                 });
                 const data = await response.json();
-                
-                log('收到服务器响应：' + JSON.stringify(data, null, 2));
                 
                 if (data.success) {
                     log('上传成功！');
@@ -230,17 +341,29 @@
                                 </div>
                             </div>
                         `;
-                    } else {
-                        log('警告：识别结果为空');
                     }
                 } else {
-                    log(`错误：${data.error || '上传失败'}\n详情：${data.detail || '无'}`);
+                    log(`错误：${data.error || '上传失败'}`);
                     alert(data.error || '上传失败');
                 }
             } catch (error) {
                 log(`错误：${error.message}`);
-                console.error('Error:', error);
                 alert('上传失败');
+            }
+        }
+
+        // 取消裁剪
+        function cancelCrop() {
+            closeCropperModal();
+            document.getElementById('imageInput').value = '';
+        }
+
+        // 关闭裁剪对话框
+        function closeCropperModal() {
+            document.getElementById('cropperModal').style.display = 'none';
+            if (cropper) {
+                cropper.destroy();
+                cropper = null;
             }
         }
 
