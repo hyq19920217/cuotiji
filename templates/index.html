@@ -124,11 +124,58 @@
 
     <div class="mistake-list">
         <h2>错题列表</h2>
+        <div class="list-actions" style="margin: 10px 0;">
+            <button class="analyze-button" onclick="analyzeSelected()">分析选中的错题</button>
+            <button class="delete-button" onclick="deleteSelected()" style="
+                margin-left: 10px;
+                padding: 10px;
+                background-color: #dc3545;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;">批量删除</button>
+        </div>
         <div id="mistakeList"></div>
     </div>
 
-    <div class="analyze-section">
-        <button class="analyze-button" onclick="analyzeSelected()">分析选中的错题</button>
+    <!-- 删除确认对话框 -->
+    <div id="deleteConfirmDialog" class="modal" style="
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.5);
+        z-index: 1000;">
+        <div class="modal-content" style="
+            position: relative;
+            margin: 15% auto;
+            padding: 20px;
+            width: 80%;
+            max-width: 500px;
+            background-color: #fff;
+            border-radius: 8px;">
+            <h3>确认删除</h3>
+            <p>确定要删除选中的错题吗？此操作不可恢复。</p>
+            <div style="text-align: right; margin-top: 20px;">
+                <button onclick="closeDeleteDialog()" style="
+                    padding: 8px 16px;
+                    margin-right: 10px;
+                    background-color: #6c757d;
+                    color: white;
+                    border: none;
+                    border-radius: 4px;
+                    cursor: pointer;">取消</button>
+                <button onclick="confirmDelete()" style="
+                    padding: 8px 16px;
+                    background-color: #f8d7da;
+                    color: #721c24;
+                    border: 1px solid #f5c6cb;
+                    border-radius: 4px;
+                    cursor: pointer;">确认删除</button>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -436,6 +483,52 @@
                 const errorMessage = `分析出错：${error.message}\n${error.stack || ''}`;
                 log(errorMessage);
                 alert('分析过程出错，请查看日志了解详情');
+            }
+        }
+
+        // 添加批量删除相关函数
+        function deleteSelected() {
+            const selected = Array.from(document.querySelectorAll('.mistake-select:checked'))
+                .map(checkbox => parseInt(checkbox.closest('.mistake-item').id.split('-')[1]));
+            
+            if (selected.length === 0) {
+                alert('请先选择要删除的错题');
+                return;
+            }
+            
+            // 显示确认对话框
+            document.getElementById('deleteConfirmDialog').style.display = 'block';
+        }
+
+        function closeDeleteDialog() {
+            document.getElementById('deleteConfirmDialog').style.display = 'none';
+        }
+
+        async function confirmDelete() {
+            const selected = Array.from(document.querySelectorAll('.mistake-select:checked'))
+                .map(checkbox => parseInt(checkbox.closest('.mistake-item').id.split('-')[1]));
+            
+            try {
+                const response = await fetch('/api/mistakes/batch-delete', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ mistake_ids: selected })
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    log('批量删除成功！');
+                    closeDeleteDialog();
+                    await loadMistakes();
+                } else {
+                    log(`删除失败：${data.error}`);
+                    alert('删除失败：' + (data.error || '未知错误'));
+                }
+            } catch (error) {
+                log(`错误：${error.message}`);
+                alert('删除失败：' + error.message);
             }
         }
     </script>

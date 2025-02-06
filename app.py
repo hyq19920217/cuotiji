@@ -325,6 +325,31 @@ def extract_tags(analysis):
                 tags.append(tag)
     return tags
 
+@app.route('/api/mistakes/batch-delete', methods=['POST'])
+def batch_delete_mistakes():
+    try:
+        data = request.get_json()
+        mistake_ids = data.get('mistake_ids', [])
+        
+        if not mistake_ids:
+            return jsonify({'error': '没有选择要删除的错题'}), 400
+            
+        # 批量删除
+        Mistake.query.filter(Mistake.id.in_(mistake_ids)).delete(synchronize_session=False)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': f'成功删除 {len(mistake_ids)} 条记录'
+        })
+        
+    except Exception as e:
+        print(f"批量删除失败: {str(e)}")
+        return jsonify({
+            'error': '删除失败',
+            'detail': str(e)
+        }), 500
+
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
