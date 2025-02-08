@@ -6,7 +6,7 @@ from config import Config
 import json
 import traceback  # 添加到文件顶部
 import requests
-from PIL import Image
+from PIL import Image, ImageDraw
 import pillow_heif  # 需要添加这个库来支持 HEIF 格式
 import io
 from datetime import datetime
@@ -96,55 +96,48 @@ def upload_image():
                 except Exception as e:
                     return jsonify({'error': 'HEIF 转换失败', 'detail': str(e)}), 500
             
-            # 读取图片文件
-            try:
-                with open(filename, 'rb') as fp:
-                    image = fp.read()
-            except Exception as e:
-                return jsonify({'error': '文件读取失败', 'detail': str(e)}), 500
-                    
-            # 调用百度OCR API
-            try:
-                print("开始调用百度OCR API...")
-                result = ocr_client.basicGeneral(image)  # 基础版本
-                print("OCR 原始返回结果:", result)  # 打印完整返回结果
-                
-                # 检查 API Key 是否正确加载
-                print("当前使用的百度OCR配置:")
-                print(f"APP_ID: {app.config['BAIDU_APP_ID']}")
-                print(f"API_KEY: {app.config['BAIDU_API_KEY']}")
-                print(f"SECRET_KEY: {app.config['BAIDU_SECRET_KEY'][:10]}...")  # 只打印前10位
-                
-                if 'error_code' in result:
-                    error_msg = f"OCR错误: {result.get('error_msg', '未知错误')}"
-                    print(error_msg)
-                    return jsonify({'error': '识别失败', 'detail': error_msg}), 500
-            except Exception as e:
-                print(f"OCR Exception: {str(e)}")
-                return jsonify({'error': 'OCR处理失败', 'detail': str(e)}), 500
+            # 使用高精度文字识别
+            options = {
+                "detect_direction": "true",
+                "probability": "true",       # 返回置信度
+                "vertexes_location": "true"  # 返回文字位置
+            }
             
-            if 'words_result' in result:
-                print("识别到的文字数量:", len(result['words_result']))
-                # 直接使用识别结果
-                text = '\n'.join(item['words'] for item in result['words_result'])
-                print(f"处理后的文本:\n{text}")  # 添加日志
-                
-                try:
-                    # 保存到数据库
-                    mistake = Mistake(content=text, image_path=filename)
-                    print(f"准备保存到数据库: content={text}, image_path={filename}")  # 添加日志
-                    db.session.add(mistake)
-                    db.session.commit()
-                    print("数据库保存成功")  # 添加日志
-                except Exception as e:
-                    print(f"数据库保存失败: {str(e)}")  # 添加详细错误信息
-                    return jsonify({'error': '数据库保存失败', 'detail': str(e)}), 500
-                
-                return jsonify({
-                    'success': True,
-                    'text': text,
-                    'id': mistake.id
-                })
+            print("开始调用百度 OCR...")
+            result = ocr_client.accurate(filename, options)
+            print("OCR 返回结果:", result)
+            
+            if 'error_code' in result:
+                raise Exception(result.get('error_msg', '识别失败'))
+            
+            # 处理识别结果
+            img = Image.open(filename).convert('RGB')
+            draw = ImageDraw.Draw(img)
+            
+            # 用白色填充低置信度的区域（可能是手写）
+            for word_info in result['words_result']:
+                probability = float(word_info['probability']['average'])
+                if probability < 0.85:  # 低置信度可能是手写
+                    # 获取文字区域坐标
+                    location = word_info['location']
+                    # 用白色填充
+                    draw.rectangle([
+                        location['left'], location['top'],
+                        location['left'] + location['width'],
+                        location['top'] + location['height']
+                    ], fill='white')
+                    print(f"移除低置信度文字: {word_info['words']}, 置信度: {probability}")
+            
+            # 保存到内存
+            img_byte_arr = io.BytesIO()
+            img.save(img_byte_arr, format='PNG')
+            img_byte_arr = img_byte_arr.getvalue()
+            
+            return send_file(
+                io.BytesIO(img_byte_arr),
+                mimetype='image/png',
+                as_attachment=False
+            )
     
     except Exception as e:
         return jsonify({'error': '处理失败', 'detail': str(e)}), 500
@@ -452,43 +445,43 @@ def process_image():
             return jsonify({'error': '没有上传文件'}), 400
             
         file = request.files['image']
-        # 读取图片为 OpenCV 格式
-        nparr = np.frombuffer(file.read(), np.uint8)
-        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        image = file.read()
         
-        # 转换为 HSV 颜色空间
-        hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+        # 使用高精度文字识别
+        options = {
+            "detect_direction": "true",
+            "probability": "true",       # 返回置信度
+            "vertexes_location": "true"  # 返回文字位置
+        }
         
-        # 定义红色范围（包括深红和亮红）
-        lower_red1 = np.array([0, 50, 50])
-        upper_red1 = np.array([10, 255, 255])
-        lower_red2 = np.array([170, 50, 50])
-        upper_red2 = np.array([180, 255, 255])
+        print("开始调用百度 OCR...")
+        result = ocr_client.accurate(image, options)
+        print("OCR 返回结果:", result)
         
-        # 创建红色掩码
-        mask1 = cv2.inRange(hsv, lower_red1, upper_red1)
-        mask2 = cv2.inRange(hsv, lower_red2, upper_red2)
-        red_mask = mask1 + mask2
+        if 'error_code' in result:
+            raise Exception(result.get('error_msg', '识别失败'))
+            
+        # 处理识别结果
+        img = Image.open(io.BytesIO(image)).convert('RGB')
+        draw = ImageDraw.Draw(img)
         
-        # 去除红色
-        img_no_red = img.copy()
-        img_no_red[red_mask > 0] = 255  # 将红色区域设为白色
-        
-        # 转换为灰度图
-        gray = cv2.cvtColor(img_no_red, cv2.COLOR_BGR2GRAY)
-        
-        # 自适应二值化
-        binary = cv2.adaptiveThreshold(
-            gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
-            cv2.THRESH_BINARY, 11, 2
-        )
-        
-        # 转换回 PIL Image
-        processed_img = Image.fromarray(binary)
+        # 用白色填充低置信度的区域（可能是手写）
+        for word_info in result['words_result']:
+            probability = float(word_info['probability']['average'])
+            if probability < 0.85:  # 低置信度可能是手写
+                # 获取文字区域坐标
+                location = word_info['location']
+                # 用白色填充
+                draw.rectangle([
+                    location['left'], location['top'],
+                    location['left'] + location['width'],
+                    location['top'] + location['height']
+                ], fill='white')
+                print(f"移除低置信度文字: {word_info['words']}, 置信度: {probability}")
         
         # 保存到内存
         img_byte_arr = io.BytesIO()
-        processed_img.save(img_byte_arr, format='PNG')
+        img.save(img_byte_arr, format='PNG')
         img_byte_arr = img_byte_arr.getvalue()
         
         return send_file(
