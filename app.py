@@ -454,30 +454,39 @@ def process_image():
             "vertexes_location": "true"  # 返回文字位置
         }
         
-        print("开始调用百度 OCR...")
+        print("开始调用百度 OCR...", flush=True)
+        print(f"使用的配置: APP_ID={app.config['BAIDU_APP_ID']}", flush=True)
         result = ocr_client.accurate(image, options)
-        print("OCR 返回结果:", result)
+        print("OCR 返回结果:", result, flush=True)
         
         if 'error_code' in result:
+            print(f"百度 OCR 返回错误: {result}", flush=True)
             raise Exception(result.get('error_msg', '识别失败'))
             
         # 处理识别结果
-        img = Image.open(io.BytesIO(image)).convert('RGB')
-        draw = ImageDraw.Draw(img)
-        
-        # 用白色填充低置信度的区域（可能是手写）
-        for word_info in result['words_result']:
-            probability = float(word_info['probability']['average'])
-            if probability < 0.85:  # 低置信度可能是手写
-                # 获取文字区域坐标
-                location = word_info['location']
-                # 用白色填充
-                draw.rectangle([
-                    location['left'], location['top'],
-                    location['left'] + location['width'],
-                    location['top'] + location['height']
-                ], fill='white')
-                print(f"移除低置信度文字: {word_info['words']}, 置信度: {probability}")
+        try:
+            img = Image.open(io.BytesIO(image)).convert('RGB')
+            draw = ImageDraw.Draw(img)
+            
+            # 用白色填充低置信度的区域（可能是手写）
+            for word_info in result['words_result']:
+                try:
+                    probability = float(word_info['probability']['average'])
+                    if probability < 0.85:  # 低置信度可能是手写
+                        location = word_info['location']
+                        draw.rectangle([
+                            location['left'], location['top'],
+                            location['left'] + location['width'],
+                            location['top'] + location['height']
+                        ], fill='white')
+                        print(f"移除低置信度文字: {word_info['words']}, 置信度: {probability}", flush=True)
+                except Exception as e:
+                    print(f"处理单个文字区域时出错: {str(e)}", flush=True)
+                    continue
+                    
+        except Exception as e:
+            print(f"图像处理过程出错: {str(e)}", flush=True)
+            raise
         
         # 保存到内存
         img_byte_arr = io.BytesIO()
@@ -491,8 +500,13 @@ def process_image():
         )
         
     except Exception as e:
-        print(f"图像处理错误: {str(e)}")
-        return jsonify({'error': '图像处理失败', 'detail': str(e)}), 500
+        print(f"图像处理错误: {str(e)}", flush=True)
+        print(f"错误详情: {traceback.format_exc()}", flush=True)
+        return jsonify({
+            'error': '图像处理失败',
+            'detail': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
 
 if __name__ == '__main__':
     with app.app_context():

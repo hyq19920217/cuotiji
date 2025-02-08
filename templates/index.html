@@ -978,10 +978,8 @@
             const text = document.getElementById('removeHandwritingText');
             const loading = document.getElementById('removeHandwritingLoading');
             
-            // 如果按钮已禁用，说明正在处理中
             if (button.disabled) return;
             
-            // 禁用按钮并显示加载状态
             button.disabled = true;
             text.style.display = 'none';
             loading.style.display = 'inline-block';
@@ -992,29 +990,25 @@
                     originalImageData = cropper.getCroppedCanvas().toDataURL();
                 }
                 
-                // 获取当前裁剪区域的图片
                 const canvas = cropper.getCroppedCanvas();
                 const blob = await new Promise(resolve => canvas.toBlob(resolve));
                 
-                // 创建 FormData
                 const formData = new FormData();
                 formData.append('image', blob);
                 
-                // 发送到服务器处理
                 const response = await fetch('/api/process-image', {
                     method: 'POST',
                     body: formData
                 });
                 
                 if (!response.ok) {
-                    throw new Error('图像处理失败');
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || errorData.error || '处理失败');
                 }
                 
-                // 获取处理后的图片
                 const processedBlob = await response.blob();
                 const processedUrl = URL.createObjectURL(processedBlob);
                 
-                // 更新裁剪器中的图片
                 cropper.destroy();
                 const cropperImage = document.getElementById('cropperImage');
                 cropperImage.src = processedUrl;
@@ -1031,14 +1025,12 @@
                     zoomable: true,
                 });
                 
-                // 显示重置按钮
                 document.getElementById('resetButton').style.display = 'inline-block';
                 
             } catch (error) {
                 console.error('Error:', error);
-                alert('处理图片失败：' + error.message);
+                alert('处理图片失败：\n' + error.message);
             } finally {
-                // 恢复按钮状态
                 button.disabled = false;
                 text.style.display = 'inline-block';
                 loading.style.display = 'none';
